@@ -191,13 +191,13 @@ class ElectrodePainter2D extends CustomPainter {
   }
 }
 
-class BrainDemoPage extends StatefulWidget {
-  const BrainDemoPage({super.key});
+class EducationalScreen extends StatefulWidget {
+  const EducationalScreen({super.key});
   @override
-  State<BrainDemoPage> createState() => _BrainDemoPageState();
+  State<EducationalScreen> createState() => _BrainDemoPageState();
 }
 
-class _BrainDemoPageState extends State<BrainDemoPage> {
+class _BrainDemoPageState extends State<EducationalScreen> {
   Montage _activeMontage = Montage.system;
   String? _activeLabel;
 

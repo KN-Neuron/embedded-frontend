@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import '../../models/eeg_metrics.dart';
-import '../../processors/eeg_analysis_processor.dart';
+import '../core/eeg_metrics.dart';
+import 'eeg_analysis_processor.dart';
 
 /// manages and updates the EEG data and analysis results using Provider
 class EegDataController with ChangeNotifier {

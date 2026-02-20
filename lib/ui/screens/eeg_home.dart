@@ -6,9 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:eeg_dashboard_app/utils/constants.dart';
-import 'package:eeg_dashboard_app/utils/signal_processor.dart';
-import 'package:eeg_dashboard_app/pages/brain_demo_page.dart';
+import 'package:eeg_dashboard_app/core/constants.dart';
+import 'package:eeg_dashboard_app/logic/signal_processor.dart';
+import 'package:eeg_dashboard_app/ui/screens/educational_screen.dart';
 
 class EEGHome extends StatefulWidget {
   const EEGHome({super.key});
@@ -230,7 +230,7 @@ class _EEGHomeState extends State<EEGHome> with SingleTickerProviderStateMixin {
                 const SizedBox(width: 10),
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const BrainDemoPage()),
+                    MaterialPageRoute(builder: (context) => const EducationalScreen()),
                   ),
                   icon: const Icon(Icons.school_outlined),
                   label: const Text('learn'),
