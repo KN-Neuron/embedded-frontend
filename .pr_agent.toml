@@ -1,0 +1,8 @@
+[github_app]
+pr_description = true
+pr_code_suggestions = true
+pr_review = true
+
+[pr_description]
+enable_walkthrough = true
+publish_title = true
