@@ -1,8 +1,14 @@
 [github_app]
-pr_description = true
-pr_code_suggestions = true
-pr_review = true
+pr_commands = ["/describe", "/review", "/improve"]
 
 [pr_description]
-enable_walkthrough = true
 publish_title = true
+publish_description = true
+enable_walkthrough = true
+use_description_markers = false
+
+[pr_review]
+publish_review = true
+
+[pr_code_suggestions]
+publish_suggestions = true
