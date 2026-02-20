@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:eeg_dashboard_app/pages/eeg_home.dart';
-import 'package:eeg_dashboard_app/pages/brain_demo_page.dart';
-import 'package:eeg_dashboard_app/utils/constants.dart';
+import 'package:provider/provider.dart';
+import 'core/constants.dart';
+import 'logic/eeg_data_controller.dart';
+import 'ui/screens/eeg_home.dart';
+import 'ui/screens/educational_screen.dart';
+import 'ui/screens/dashboard_screen.dart';
 
 void main() {
-  runApp(const EEGAnalyzerApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => EegDataController(),
+      child: const EEGAnalyzerApp(),
+    ),
+  );
 }
 
 class EEGAnalyzerApp extends StatelessWidget {
@@ -16,22 +24,20 @@ class EEGAnalyzerApp extends StatelessWidget {
       title: 'EEG Realtime Dashboard',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-          scaffoldBackgroundColor: const Color(0xFF000000),
-          cardColor: cardColor,
-          colorScheme: const ColorScheme.dark(
-            primary: primaryColor,
-            secondary: secondaryColor,
-            background: Color(0xFF0A0A10),
-          ),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: cardColor,
-            elevation: 0,
-          )
+        scaffoldBackgroundColor: const Color(0xFF000000),
+        cardColor: cardColor,
+        colorScheme: const ColorScheme.dark(
+          primary: primaryColor,
+          secondary: secondaryColor,
+          surface: Color(0xFF0A0A10),
+        ),
       ),
+      initialRoute: '/',
       routes: {
-        '/educational': (context) => const BrainDemoPage(),
+        '/': (context) => const EEGHome(),
+        '/dashboard': (context) => const DashboardScreen(),
+        '/educational': (context) => const EducationalScreen(),
       },
-      home: const EEGHome(),
     );
   }
 }

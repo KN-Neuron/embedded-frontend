@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../controllers/eeg_data_controller.dart';
-import '../../models/eeg_metrics.dart';
-import '../../services/ai_analysis_service.dart';
-import '../../widgets/eeg_signal_chart.dart';
-import '../../widgets/band_power_cards.dart';
-import '../../widgets/fft_spectrum_chart.dart';
+import '../../logic/eeg_data_controller.dart';
+import '../../core/eeg_metrics.dart';
+import '../../logic/ai_analysis_service.dart';
+import '../widgets/eeg_signal_chart.dart';
+import '../widgets/band_power_cards.dart';
+import '../widgets/fft_spectrum_chart.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

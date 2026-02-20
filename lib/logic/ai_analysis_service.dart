@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import '../../models/eeg_metrics.dart';
+import '../core/eeg_metrics.dart';
 
 /// handles communication with the OpenAI API for AI-driven EEG interpretation
 class AiAnalysisService {
