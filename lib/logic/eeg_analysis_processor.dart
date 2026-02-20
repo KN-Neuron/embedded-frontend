@@ -1,7 +1,7 @@
 import 'dart:math';
-import '../../config/band_config.dart';
-import '../../models/complex.dart';
-import '../../models/eeg_metrics.dart';
+import '../core/band_config.dart';
+import '../core/complex.dart';
+import '../core/eeg_metrics.dart';
 
 /// processor for synthetic EEG signal generation and analysis (FFT, Band Power)
 class EegAnalysisProcessor {

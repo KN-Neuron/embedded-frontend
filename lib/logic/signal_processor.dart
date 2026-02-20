@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'package:eeg_dashboard_app/models/complex.dart';
-import 'package:eeg_dashboard_app/utils/constants.dart';
+import 'package:eeg_dashboard_app/core/complex.dart';
+import 'package:eeg_dashboard_app/core/constants.dart';
 
 List<Complex> fft(List<Complex> x) {
   int n = x.length;

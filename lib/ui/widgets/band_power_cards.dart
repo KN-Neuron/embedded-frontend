@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../config/band_config.dart';
+import '../../core/band_config.dart';
 
 /// displays the power of each EEG band in a row of small cards
 class BandPowerCards extends StatelessWidget {
