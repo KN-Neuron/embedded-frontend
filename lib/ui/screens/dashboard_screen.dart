@@ -1,15 +1,18 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:convert';
 import 'dart:io' show Platform, File;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:eeg_dashboard_app/core/constants.dart';
 import 'package:eeg_dashboard_app/logic/signal_processor.dart';
 import 'package:eeg_dashboard_app/ui/screens/educational_screen.dart';
+
+import 'dashboard/controls_card.dart';
+import 'dashboard/analysis_bar.dart';
+import 'dashboard/signal_view.dart';
+import 'dashboard/analysis_drawer.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -293,356 +296,47 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     }
   }
 
-  Widget _buildControlsCard(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            Text(
-              'EEG Dashboard',
-              style: Theme.of(context).textTheme.titleLarge!.copyWith(
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _pickAndLoadFile,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Load CSV'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.blueGrey,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _useMockData,
-                  icon: const Icon(Icons.shuffle),
-                  label: const Text('Mock Data'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: Colors.deepPurple,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _isRunning ? _stopRealtime : _startRealtime,
-                  icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
-                  label: Text(_isRunning ? 'Pause' : 'Start'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: _isRunning ? Colors.red : primaryColor,
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const EducationalScreen()),
-                  ),
-                  icon: const Icon(Icons.school, color: Colors.amber),
-                  tooltip: 'Learn 10-20 System',
-                ),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _showAnalysisDrawer = !_showAnalysisDrawer;
-                    });
-                  },
-                  icon: Icon(_showAnalysisDrawer ? Icons.bar_chart : Icons.bar_chart_outlined, color: Colors.teal),
-                  tooltip: 'Toggle Analysis Drawer',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+  Widget _controlsCard(BuildContext context) {
+    return ControlsCard(
+      isRunning: _isRunning,
+      onPickAndLoadFile: _pickAndLoadFile,
+      onUseMockData: _useMockData,
+      onStartStopToggle: () { _isRunning ? _stopRealtime() : _startRealtime(); },
+      onOpenEducational: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const EducationalScreen())),
+      onToggleAnalysisDrawer: () => setState(() { _showAnalysisDrawer = !_showAnalysisDrawer; }),
+      showAnalysisDrawer: _showAnalysisDrawer,
     );
   }
 
-  Widget _buildAnalysisBar(BuildContext context) {
+  Widget _analysisBar(BuildContext context) {
     if (_channels.isEmpty) return const SizedBox.shrink();
+    return AnalysisBar(alpha: _alphaPower, beta: _betaPower, theta: _thetaPower, delta: _deltaPower, totalPower: _totalPower);
+  }
 
-    final bands = {
-      'Alpha': _alphaPower,
-      'Beta': _betaPower,
-      'Theta': _thetaPower,
-      'Delta': _deltaPower,
-    };
-    final sortedBands = bands.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: sortedBands.map((e) {
-            final percentage = (_totalPower > 0 ? e.value / _totalPower : 0.0) * 100;
-            return Column(
-              children: [
-                Text(e.key, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: bandColors[e.key]!)),
-                const SizedBox(height: 4),
-                Text(
-                  '${percentage.toStringAsFixed(1)}%',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(color: bandColors[e.key]!),
-                ),
-                Text(
-                  'Power: ${e.value.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
+  Widget _signalView(BuildContext context) {
+    return SignalView(
+      channels: _channels,
+      viewBuffer: _viewBuffer,
+      offsetStep: _offsetStep,
+      sampleRate: sampleRate,
     );
   }
 
-  Widget _buildSignalView(BuildContext context) {
-    if (_channels.isEmpty) return const Center(child: Text('awaiting EEG data...'));
-
-    List<LineChartBarData> lineBars = [];
-
-    for (int i = 0; i < _channels.length; i++) {
-      final chName = _channels[i];
-      final view = _viewBuffer(chName);
-      final offset = i * _offsetStep;
-
-      lineBars.add(
-        LineChartBarData(
-          spots: List.generate(view.length, (idx) => FlSpot(idx.toDouble(), view[idx] + offset)),
-          isCurved: true,
-          curveSmoothness: 0.1,
-          color: primaryColor.withOpacity(0.8),
-          barWidth: 1.2,
-          dotData: const FlDotData(show: false),
-        ),
-      );
-    }
-
-    return LineChart(
-      LineChartData(
-        minY: -(_offsetStep / 2),
-        maxY: (_channels.length * _offsetStep) - (_offsetStep / 2),
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 40,
-                  interval: 1.0,
-                  getTitlesWidget: (value, meta) {
-                    for (int i = 0; i < _channels.length; i++) {
-                      if ((value - (i * _offsetStep)).abs() < 0.1) {
-                        return Center(child: Text(_channels[i], style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)));
-                      }
-                    }
-                    return const SizedBox.shrink();
-                  }
-              )
-          ),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: _bottomTitles)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: true,
-          drawHorizontalLine: true,
-          getDrawingHorizontalLine: (value) => FlLine(color: Colors.white10, strokeWidth: 1),
-          getDrawingVerticalLine: (value) => FlLine(color: Colors.white10, strokeWidth: 1),
-        ),
-        borderData: FlBorderData(show: true, border: Border.all(color: Colors.white10)),
-        lineBarsData: lineBars,
-      ),
-    );
-  }
-
-  static Widget _bottomTitles(double value, TitleMeta meta) {
-    const style = TextStyle(color: Colors.grey, fontSize: 10);
-    if (value.toInt() % (sampleRate * 1) == 0) {
-      return SideTitleWidget(meta: meta, child: Text('${value ~/ sampleRate} s', style: style));
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildSpectrumChart(BuildContext context) {
-    if (_spectrum.isEmpty) return const Center(child: Text('awaiting EEG data...'));
-
-    int fftSize = 1;
-    while (fftSize < bufferLength) fftSize <<= 1;
-    final df = sampleRate / fftSize;
-
-    return BarChart(
-      BarChartData(
-        maxY: _spectrum.reduce(max) * 1.2,
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: true, reservedSize: 30, getTitlesWidget: (value, meta) => Text(value.toStringAsFixed(1), style: const TextStyle(fontSize: 10)))),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 25,
-              getTitlesWidget: (value, meta) {
-                final freq = value * df;
-                if (freq % 5 == 0 && freq <= 30) {
-                  return SideTitleWidget(
-                    meta: meta,
-                    child: Text('${freq.toInt()}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        barGroups: List.generate(_spectrum.length, (i) {
-          final freq = i * df;
-          Color color;
-          if (freq >= deltaLow && freq <= deltaHigh) color = bandColors['Delta']!;
-          else if (freq > deltaHigh && freq <= thetaHigh) color = bandColors['Theta']!;
-          else if (freq > thetaHigh && freq <= alphaHigh) color = bandColors['Alpha']!;
-          else if (freq > alphaHigh && freq <= betaHigh) color = bandColors['Beta']!;
-          else color = Colors.grey.withOpacity(0.3);
-
-          return BarChartGroupData(
-            x: i,
-            barRods: [
-              BarChartRodData(
-                toY: _spectrum[i],
-                color: color,
-                width: 1,
-                borderRadius: BorderRadius.zero,
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-
-  Widget _buildAnalysisDrawer(BuildContext context) {
-    return Container(
-      color: cardColor.withOpacity(0.5),
-      padding: const EdgeInsets.all(16),
-      child: ListView(
-        children: [
-          Card(
-            color: cardColor,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Analyze Channel:', style: Theme.of(context).textTheme.titleMedium!.copyWith(color: primaryColor)),
-                      DropdownButton<String>(
-                        value: _selectedAnalysisChannel,
-                        dropdownColor: cardColor,
-                        underline: Container(height: 1, color: primaryColor),
-                        items: _channels.map((String ch) {
-                          return DropdownMenuItem<String>(
-                            value: ch,
-                            child: Text(ch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            setState(() {
-                              _selectedAnalysisChannel = newValue;
-                              _updateAnalysis();
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildMetricRow('Hjorth Activity:', _hjorthActivity.toStringAsFixed(4)),
-                  _buildMetricRow('Hjorth Mobility:', _hjorthMobility.toStringAsFixed(4)),
-                  _buildMetricRow('Alpha Peak Freq:', '${_alphaPeakFreq.toStringAsFixed(2)} Hz'),
-                ],
-              ),
-            ),
-          ),
-          Card(
-            color: cardColor,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0).copyWith(bottom: 0),
-                  child: Text('FFT Power Spectrum (PSD)', style: Theme.of(context).textTheme.titleMedium!.copyWith(color: primaryColor)),
-                ),
-                AspectRatio(
-                  aspectRatio: 1.5,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildSpectrumChart(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Card(
-            color: cardColor,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Gemini AI Analysis', style: Theme.of(context).textTheme.titleMedium!.copyWith(color: secondaryColor)),
-                  const SizedBox(height: 10),
-                  TextField(
-                    onSubmitted: _saveApiKey,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: _apiKey.isNotEmpty ? 'API Key Set' : 'Enter Gemini API Key',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: Icon(_apiKey.isNotEmpty ? Icons.check_circle : Icons.vpn_key),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _performAIAnalysis,
-                      icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('analyze with AI'),
-                      style: ElevatedButton.styleFrom(backgroundColor: secondaryColor),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(_aiAnalysisResult, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ),
-        ].expand((widget) => [widget, const SizedBox(height: 10)]).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMetricRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          Text(value, style: Theme.of(context).textTheme.bodyLarge!.copyWith(color: primaryColor)),
-        ],
-      ),
+  Widget _analysisDrawerWidget(BuildContext context) {
+    return AnalysisDrawer(
+      channels: _channels,
+      selectedChannel: _selectedAnalysisChannel,
+      onSelectChannel: (s) { setState(() { _selectedAnalysisChannel = s; _updateAnalysis(); }); },
+      hjorthActivity: _hjorthActivity,
+      hjorthMobility: _hjorthMobility,
+      alphaPeakFreq: _alphaPeakFreq,
+      apiKey: _apiKey,
+      onSaveApiKey: _saveApiKey,
+      onPerformAIAnalysis: _performAIAnalysis,
+      aiAnalysisResult: _aiAnalysisResult,
+      spectrum: _spectrum,
+      bufferLength: bufferLength,
+      sampleRate: sampleRate,
     );
   }
 
@@ -674,15 +368,15 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildControlsCard(context),
+                  _controlsCard(context),
                   const SizedBox(height: 10),
-                  if (_showAnalysisDrawer) _buildAnalysisBar(context),
+                  if (_showAnalysisDrawer) _analysisBar(context),
                   if (_showAnalysisDrawer) const SizedBox(height: 10),
                   Expanded(
                     child: Card(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4, right: 12, top: 12, bottom: 4),
-                        child: _buildSignalView(context),
+                        child: _signalView(context),
                       ),
                     ),
                   ),
@@ -693,7 +387,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           if (_showAnalysisDrawer)
             Expanded(
               flex: 3,
-              child: _buildAnalysisDrawer(context),
+              child: _analysisDrawerWidget(context),
             ),
         ],
       ),
