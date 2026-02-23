@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'educational/montage_selector.dart';
+import 'educational/montage_info_panel.dart';
 
 enum Montage { system, referential, bipolar }
 
@@ -48,7 +50,6 @@ class ElectrodePainter2D extends CustomPainter {
 
   Offset _getElectrodePosition(String label, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    // Modified: Reduce scaling factors to make the head smaller
     final double headRadiusX = size.width * 0.30;
     final double headRadiusY = size.height * 0.42;
     final loc = _electrodeLayout.firstWhere((e) => e.label == label, orElse: () => const ElectrodeLocation2D('', 0.0, 0.0));
@@ -83,7 +84,6 @@ class ElectrodePainter2D extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    // Modified: Reduce scaling factors to make the head smaller
     final double headRadiusX = size.width * 0.30;
     final double headRadiusY = size.height * 0.42;
 
@@ -240,10 +240,8 @@ class _BrainDemoPageState extends State<EducationalScreen> {
 
   void _handleTapDown(TapDownDetails details, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    // Modified: Use the smaller scaling factors for accurate hit testing
     final double headRadiusX = size.width * 0.30;
     final double headRadiusY = size.height * 0.42;
-    // Modified: Calculate a dynamic hit radius that is larger than the dot radius for easy clicking
     final hitRadius = min(size.width, size.height) * 0.04;
 
     for (final loc in _electrodeLayout) {
@@ -300,39 +298,10 @@ class _BrainDemoPageState extends State<EducationalScreen> {
   }
 
   Widget _buildMontageSelector() {
-    return Card(
-      color: Colors.grey.shade900,
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: Montage.values.map((montage) {
-            final color = _montageDescriptions[montage]?['color'] as Color? ?? Colors.white;
-
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<Montage>(
-                  value: montage,
-                  groupValue: _activeMontage,
-                  onChanged: (Montage? value) {
-                    setState(() {
-                      _activeMontage = value!;
-                      _activeLabel = null;
-                    });
-                  },
-                  activeColor: color,
-                ),
-                Text(
-                  montage.toString().split('.').last.toUpperCase(),
-                  style: TextStyle(color: _activeMontage == montage ? color : Colors.white70, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
+    return MontageSelector(
+      activeMontage: _activeMontage,
+      onChanged: (m) { setState(() { _activeMontage = m; _activeLabel = null; }); },
+      montageDescriptions: _montageDescriptions,
     );
   }
 
@@ -340,29 +309,10 @@ class _BrainDemoPageState extends State<EducationalScreen> {
     final info = _montageDescriptions[_activeMontage]!;
     final color = info['color'] as Color? ?? Colors.grey;
 
-    return Card(
-      color: Colors.grey.shade900,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              info['title']! as String,
-              style: Theme.of(context).textTheme.headlineSmall!.copyWith(color: color, fontWeight: FontWeight.bold),
-            ),
-            const Divider(color: Colors.grey),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  info['desc']! as String,
-                  style: Theme.of(context).textTheme.bodyLarge!.copyWith(height: 1.5, color: Colors.white70),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return MontageInfoPanel(
+      title: info['title']! as String,
+      description: info['desc']! as String,
+      color: color,
     );
   }
 

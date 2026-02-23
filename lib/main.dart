@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/constants.dart';
 import 'logic/eeg_data_controller.dart';
-import 'ui/screens/eeg_home.dart';
 import 'ui/screens/educational_screen.dart';
 import 'ui/screens/dashboard_screen.dart';
 
@@ -34,8 +33,7 @@ class EEGAnalyzerApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const EEGHome(),
-        '/dashboard': (context) => const DashboardScreen(),
+        '/': (context) => const DashboardScreen(),
         '/educational': (context) => const EducationalScreen(),
       },
     );
