@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:eeg_dashboard_app/core/constants.dart';
+import 'package:eeg_dashboard_app/core/band_config.dart';
 
 class AnalysisBar extends StatelessWidget {
   final double alpha;
@@ -28,6 +28,8 @@ class AnalysisBar extends StatelessWidget {
     final sortedBands = bands.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final colorMap = BandConfig.colorMap;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -35,17 +37,14 @@ class AnalysisBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: sortedBands.map((e) {
             final percentage = (totalPower > 0 ? e.value / totalPower : 0.0) * 100;
+            final color = colorMap[e.key] ?? Colors.white;
             return Column(
               children: [
-                Text(e.key, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: bandColors[e.key]!)),
+                Text(e.key, style: Theme.of(context).textTheme.titleSmall!.copyWith(color: color)),
                 const SizedBox(height: 4),
                 Text(
                   '${percentage.toStringAsFixed(1)}%',
-                  style: Theme.of(context).textTheme.titleLarge!.copyWith(color: bandColors[e.key]!),
-                ),
-                Text(
-                  'Power: ${e.value.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.titleLarge!.copyWith(color: color),
                 ),
               ],
             );
