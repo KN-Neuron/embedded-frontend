@@ -1,14 +1,15 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:eeg_dashboard_app/core/constants.dart';
-import 'package:eeg_dashboard_app/ui/screens/educational_screen.dart';
-
 import 'dashboard/controls_card.dart';
 import 'dashboard/analysis_bar.dart';
 import 'dashboard/signal_view.dart';
 import 'dashboard/analysis_drawer.dart';
 import '../../logic/eeg_data_controller.dart';
+import '../../logic/eeg_analysis_processor.dart';
+import '../../logic/ai_analysis_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,90 +21,83 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   bool _showAnalysisDrawer = true;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final controller = Provider.of<EegDataController>(context);
+    final playback = Provider.of<PlaybackController>(context);
+    final analysis = Provider.of<EegAnalysisState>(context);
+    final ai = Provider.of<AiAnalysisService>(context);
 
-    Widget _controlsCard(BuildContext context) {
+    double calculateTotalPower() {
+      if (analysis.currentMetrics.bandPowers.isEmpty) return 0.0;
+      return analysis.currentMetrics.bandPowers.values.reduce((a, b) => a + b);
+    }
+
+    Widget buildControlsCard(BuildContext context) {
       return ControlsCard(
-        isRunning: controller.isRunning,
+        isRunning: playback.isRunning,
         onPickAndLoadFile: () async {
           try {
             FilePickerResult? result = await FilePicker.platform.pickFiles(
               type: FileType.custom,
               allowedExtensions: ['csv', 'txt'],
             );
-
             if (result != null && result.files.single.path != null) {
-              final success = await controller.loadCsvFromPath(result.files.single.path!);
-              controller.stopRealtime();
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Loaded ${controller.channels.length} channels from CSV')));
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to load file')));
+              final file = File(result.files.single.path!);
+              final lines = await file.readAsLines();
+              if (lines.isEmpty) return;
+              final headers = lines.first.split(',');
+              List<String> loadedChannels = [];
+              List<int> channelIndices = [];
+              for (int i = 0; i < headers.length; i++) {
+                final h = headers[i].trim();
+                if (h.isNotEmpty && h != 'Class' && h != 'ID') {
+                  loadedChannels.add(h);
+                  channelIndices.add(i);
+                }
+              }
+              Map<String, List<double>> loadedData = {
+                for (var ch in loadedChannels) ch: []
+              };
+              for (int i = 1; i < lines.length; i++) {
+                final parts = lines[i].split(',');
+                if (parts.length < headers.length) continue;
+                for (int j = 0; j < loadedChannels.length; j++) {
+                  final ch = loadedChannels[j];
+                  final idx = channelIndices[j];
+                  final val = (double.tryParse(parts[idx].trim()) ?? 0.0) / 100.0;
+                  loadedData[ch]!.add(val);
+                }
+              }
+              if (loadedChannels.isNotEmpty) {
+                playback.loadFileData(loadedData, loadedChannels);
               }
             }
           } catch (e) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load file: $e')));
+            debugPrint('Error: $e');
           }
         },
-        onUseMockData: () {
-          controller.useMockData();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Switched to Mock Data')));
+        onUseMockData: playback.useMockData,
+        onStartStopToggle: playback.togglePlayback,
+        onOpenEducational: () => Navigator.pushNamed(context, '/educational'),
+        onToggleAnalysisDrawer: () {
+          setState(() {
+            _showAnalysisDrawer = !_showAnalysisDrawer;
+          });
         },
-        onStartStopToggle: () { controller.toggleRealtime(); },
-        onOpenEducational: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => const EducationalScreen())),
-        onToggleAnalysisDrawer: () => setState(() { _showAnalysisDrawer = !_showAnalysisDrawer; }),
         showAnalysisDrawer: _showAnalysisDrawer,
-      );
-    }
-
-    Widget _analysisBar(BuildContext context) {
-      if (controller.channels.isEmpty) return const SizedBox.shrink();
-      return AnalysisBar(alpha: controller.alphaPower, beta: controller.betaPower, theta: controller.thetaPower, delta: controller.deltaPower, totalPower: controller.totalPower);
-    }
-
-    Widget _signalView(BuildContext context) {
-      return SignalView(
-        channels: controller.channels,
-        viewBuffer: controller.viewBuffer,
-        offsetStep: controller.offsetStep,
-        sampleRate: sampleRate,
-      );
-    }
-
-    Widget _analysisDrawerWidget(BuildContext context) {
-      return AnalysisDrawer(
-        channels: controller.channels,
-        selectedChannel: controller.selectedAnalysisChannel,
-        onSelectChannel: (s) { controller.setSelectedChannel(s); },
-        hjorthActivity: controller.hjorthActivity,
-        hjorthMobility: controller.hjorthMobility,
-        alphaPeakFreq: controller.alphaPeakFreq,
-        apiKey: controller.apiKey,
-        onSaveApiKey: (k) => controller.saveApiKey(k),
-        onPerformAIAnalysis: () => controller.performAIAnalysis(),
-        aiAnalysisResult: controller.aiAnalysisResult,
-        spectrum: controller.spectrum,
-        bufferLength: bufferLength,
-        sampleRate: sampleRate,
       );
     }
 
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Realtime EEG Analyzer'),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
               child: Text(
-                controller.isRunning ? 'RUNNING' : 'PAUSED',
+                playback.isRunning ? 'RUNNING' : 'PAUSED',
                 style: TextStyle(
-                  color: controller.isRunning ? primaryColor : Colors.white54,
+                  color: playback.isRunning ? primaryColor : Colors.white54,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -120,15 +114,26 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _controlsCard(context),
+                  buildControlsCard(context),
                   const SizedBox(height: 10),
-                  if (_showAnalysisDrawer) _analysisBar(context),
+                  if (_showAnalysisDrawer) AnalysisBar(
+                    alpha: analysis.currentMetrics.bandPowers['Alpha'] ?? 0.0,
+                    beta: analysis.currentMetrics.bandPowers['Beta'] ?? 0.0,
+                    theta: analysis.currentMetrics.bandPowers['Theta'] ?? 0.0,
+                    delta: analysis.currentMetrics.bandPowers['Delta'] ?? 0.0,
+                    totalPower: calculateTotalPower(),
+                  ),
                   if (_showAnalysisDrawer) const SizedBox(height: 10),
                   Expanded(
                     child: Card(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4, right: 12, top: 12, bottom: 4),
-                        child: _signalView(context),
+                        child: SignalView(
+                          channels: playback.channels,
+                          viewBuffer: playback.viewBuffer,
+                          offsetStep: playback.offsetStep,
+                          sampleRate: sampleRate,
+                        ),
                       ),
                     ),
                   ),
@@ -139,7 +144,35 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           if (_showAnalysisDrawer)
             Expanded(
               flex: 3,
-              child: _analysisDrawerWidget(context),
+              child: AnalysisDrawer(
+                channels: playback.channels,
+                selectedChannel: analysis.selectedAnalysisChannel,
+                onSelectChannel: analysis.setSelectedChannel,
+                hjorthActivity: analysis.hjorthActivity,
+                hjorthMobility: analysis.hjorthMobility,
+                alphaPeakFreq: analysis.currentMetrics.dominantFrequency,
+                apiKey: ai.apiKey,
+                onSaveApiKey: ai.saveApiKey,
+                onPerformAIAnalysis: () async {
+                  final dataSummary = {
+                    'Source': playback.isFromFile ? 'Loaded Dataset' : 'Mocked Synthetic Data',
+                    'Analysis Channel': analysis.selectedAnalysisChannel,
+                    'TotalPower': calculateTotalPower().toStringAsFixed(2),
+                    'AlphaPower': (analysis.currentMetrics.bandPowers['Alpha'] ?? 0.0).toStringAsFixed(2),
+                    'BetaPower': (analysis.currentMetrics.bandPowers['Beta'] ?? 0.0).toStringAsFixed(2),
+                    'ThetaPower': (analysis.currentMetrics.bandPowers['Theta'] ?? 0.0).toStringAsFixed(2),
+                    'DeltaPower': (analysis.currentMetrics.bandPowers['Delta'] ?? 0.0).toStringAsFixed(2),
+                    'AlphaPeakFreq': analysis.currentMetrics.dominantFrequency.toStringAsFixed(2),
+                    'HjorthActivity (Variance)': analysis.hjorthActivity.toStringAsFixed(4),
+                    'HjorthMobility': analysis.hjorthMobility.toStringAsFixed(4),
+                  };
+                  await ai.performAIAnalysis(dataSummary);
+                },
+                aiAnalysisResult: ai.aiAnalysisResult,
+                spectrum: analysis.currentMetrics.fftMagnitude,
+                bufferLength: bufferLength,
+                sampleRate: sampleRate,
+              ),
             ),
         ],
       ),
