@@ -88,23 +88,6 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Realtime EEG Analyzer'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: Text(
-                playback.isRunning ? 'RUNNING' : 'PAUSED',
-                style: TextStyle(
-                  color: playback.isRunning ? primaryColor : Colors.white54,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
       body: Row(
         children: [
           Expanded(
