@@ -8,7 +8,6 @@ import 'dashboard/analysis_bar.dart';
 import 'dashboard/signal_view.dart';
 import 'dashboard/analysis_drawer.dart';
 import '../../logic/eeg_data_controller.dart';
-import '../../logic/eeg_analysis_processor.dart';
 import '../../logic/ai_analysis_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -22,18 +21,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    final playback = Provider.of<PlaybackController>(context);
-    final analysis = Provider.of<EegAnalysisState>(context);
+    final pipeline = Provider.of<DataPipeline>(context);
     final ai = Provider.of<AiAnalysisService>(context);
 
     double calculateTotalPower() {
-      if (analysis.currentMetrics.bandPowers.isEmpty) return 0.0;
-      return analysis.currentMetrics.bandPowers.values.reduce((a, b) => a + b);
+      if (pipeline.currentMetrics.bandPowers.isEmpty) return 0.0;
+      return pipeline.currentMetrics.bandPowers.values.reduce((a, b) => a + b);
     }
 
     Widget buildControlsCard(BuildContext context) {
       return ControlsCard(
-        isRunning: playback.isRunning,
+        isRunning: pipeline.isRunning,
         onPickAndLoadFile: () async {
           try {
             FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -68,15 +66,15 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 }
               }
               if (loadedChannels.isNotEmpty) {
-                playback.loadFileData(loadedData, loadedChannels);
+                pipeline.loadFileData(loadedData, loadedChannels);
               }
             }
           } catch (e) {
             debugPrint('Error: $e');
           }
         },
-        onUseMockData: playback.useMockData,
-        onStartStopToggle: playback.togglePlayback,
+        onUseMockData: pipeline.useMockData,
+        onStartStopToggle: pipeline.togglePlayback,
         onOpenEducational: () => Navigator.pushNamed(context, '/educational'),
         onToggleAnalysisDrawer: () {
           setState(() {
@@ -100,10 +98,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   buildControlsCard(context),
                   const SizedBox(height: 10),
                   if (_showAnalysisDrawer) AnalysisBar(
-                    alpha: analysis.currentMetrics.bandPowers['Alpha'] ?? 0.0,
-                    beta: analysis.currentMetrics.bandPowers['Beta'] ?? 0.0,
-                    theta: analysis.currentMetrics.bandPowers['Theta'] ?? 0.0,
-                    delta: analysis.currentMetrics.bandPowers['Delta'] ?? 0.0,
+                    alpha: pipeline.currentMetrics.bandPowers['Alpha'] ?? 0.0,
+                    beta: pipeline.currentMetrics.bandPowers['Beta'] ?? 0.0,
+                    theta: pipeline.currentMetrics.bandPowers['Theta'] ?? 0.0,
+                    delta: pipeline.currentMetrics.bandPowers['Delta'] ?? 0.0,
                     totalPower: calculateTotalPower(),
                   ),
                   if (_showAnalysisDrawer) const SizedBox(height: 10),
@@ -112,9 +110,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4, right: 12, top: 12, bottom: 4),
                         child: SignalView(
-                          channels: playback.channels,
-                          viewBuffer: playback.viewBuffer,
-                          offsetStep: playback.offsetStep,
+                          channels: pipeline.channels,
+                          viewBuffer: pipeline.viewBuffer,
+                          offsetStep: pipeline.offsetStep,
                           sampleRate: sampleRate,
                         ),
                       ),
@@ -128,31 +126,31 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             Expanded(
               flex: 3,
               child: AnalysisDrawer(
-                channels: playback.channels,
-                selectedChannel: analysis.selectedAnalysisChannel,
-                onSelectChannel: analysis.setSelectedChannel,
-                hjorthActivity: analysis.hjorthActivity,
-                hjorthMobility: analysis.hjorthMobility,
-                alphaPeakFreq: analysis.currentMetrics.dominantFrequency,
+                channels: pipeline.channels,
+                selectedChannel: pipeline.selectedAnalysisChannel,
+                onSelectChannel: pipeline.setSelectedChannel,
+                hjorthActivity: pipeline.hjorthActivity,
+                hjorthMobility: pipeline.hjorthMobility,
+                alphaPeakFreq: pipeline.currentMetrics.dominantFrequency,
                 apiKey: ai.apiKey,
                 onSaveApiKey: ai.saveApiKey,
                 onPerformAIAnalysis: () async {
                   final dataSummary = {
-                    'Source': playback.isFromFile ? 'Loaded Dataset' : 'Mocked Synthetic Data',
-                    'Analysis Channel': analysis.selectedAnalysisChannel,
+                    'Source': pipeline.isFromFile ? 'Loaded Dataset' : 'Mocked Synthetic Data',
+                    'Analysis Channel': pipeline.selectedAnalysisChannel,
                     'TotalPower': calculateTotalPower().toStringAsFixed(2),
-                    'AlphaPower': (analysis.currentMetrics.bandPowers['Alpha'] ?? 0.0).toStringAsFixed(2),
-                    'BetaPower': (analysis.currentMetrics.bandPowers['Beta'] ?? 0.0).toStringAsFixed(2),
-                    'ThetaPower': (analysis.currentMetrics.bandPowers['Theta'] ?? 0.0).toStringAsFixed(2),
-                    'DeltaPower': (analysis.currentMetrics.bandPowers['Delta'] ?? 0.0).toStringAsFixed(2),
-                    'AlphaPeakFreq': analysis.currentMetrics.dominantFrequency.toStringAsFixed(2),
-                    'HjorthActivity (Variance)': analysis.hjorthActivity.toStringAsFixed(4),
-                    'HjorthMobility': analysis.hjorthMobility.toStringAsFixed(4),
+                    'AlphaPower': (pipeline.currentMetrics.bandPowers['Alpha'] ?? 0.0).toStringAsFixed(2),
+                    'BetaPower': (pipeline.currentMetrics.bandPowers['Beta'] ?? 0.0).toStringAsFixed(2),
+                    'ThetaPower': (pipeline.currentMetrics.bandPowers['Theta'] ?? 0.0).toStringAsFixed(2),
+                    'DeltaPower': (pipeline.currentMetrics.bandPowers['Delta'] ?? 0.0).toStringAsFixed(2),
+                    'AlphaPeakFreq': pipeline.currentMetrics.dominantFrequency.toStringAsFixed(2),
+                    'HjorthActivity (Variance)': pipeline.hjorthActivity.toStringAsFixed(4),
+                    'HjorthMobility': pipeline.hjorthMobility.toStringAsFixed(4),
                   };
                   await ai.performAIAnalysis(dataSummary);
                 },
                 aiAnalysisResult: ai.aiAnalysisResult,
-                spectrum: analysis.currentMetrics.fftMagnitude,
+                spectrum: pipeline.currentMetrics.fftMagnitude,
                 bufferLength: bufferLength,
                 sampleRate: sampleRate,
               ),
