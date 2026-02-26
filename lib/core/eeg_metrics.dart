@@ -1,19 +1,8 @@
-/// this is a data model to hold the results of the EEG signal analysis
 class EegMetrics {
-
-  /// time-series data points for the raw signal chart
   final List<double> rawSamples;
-
-  /// magnitude spectrum after FFT and normalization
   final List<double> fftMagnitude;
-
-  /// frequency axis points corresponding to the FFT magnitude
   final List<double> fftFrequencies;
-
-  /// calculated average power for each canonical EEG band (like delta and so on)
   final Map<String, double> bandPowers;
-
-  /// frequency with the highest magnitude in the spectrum
   final double dominantFrequency;
 
   const EegMetrics({
@@ -24,7 +13,6 @@ class EegMetrics {
     required this.dominantFrequency,
   });
 
-  /// a static empty instance for initialization before data is ready
   static EegMetrics empty() => const EegMetrics(
     rawSamples: [],
     fftMagnitude: [],
@@ -32,4 +20,28 @@ class EegMetrics {
     bandPowers: {},
     dominantFrequency: 0.0,
   );
+
+  Map<String, String> toAiSummary({
+    required bool isFromFile,
+    required String channelName,
+    required double hjorthActivity,
+    required double hjorthMobility,
+  }) {
+    final totalPower = bandPowers.isEmpty
+        ? 0.0
+        : bandPowers.values.reduce((a, b) => a + b);
+
+    return {
+      'Source': isFromFile ? 'Loaded Dataset' : 'Mocked Synthetic Data',
+      'Analysis Channel': channelName,
+      'Total Power': totalPower.toStringAsFixed(2),
+      'Alpha Power': (bandPowers['Alpha'] ?? 0.0).toStringAsFixed(2),
+      'Beta Power': (bandPowers['Beta'] ?? 0.0).toStringAsFixed(2),
+      'Theta Power': (bandPowers['Theta'] ?? 0.0).toStringAsFixed(2),
+      'Delta Power': (bandPowers['Delta'] ?? 0.0).toStringAsFixed(2),
+      'Alpha Peak Freq': dominantFrequency.toStringAsFixed(2),
+      'Hjorth Activity (Var)': hjorthActivity.toStringAsFixed(4),
+      'Hjorth Mobility': hjorthMobility.toStringAsFixed(4),
+    };
+  }
 }

@@ -135,18 +135,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 apiKey: ai.apiKey,
                 onSaveApiKey: ai.saveApiKey,
                 onPerformAIAnalysis: () async {
-                  final dataSummary = {
-                    'Source': pipeline.isFromFile ? 'Loaded Dataset' : 'Mocked Synthetic Data',
-                    'Analysis Channel': pipeline.selectedAnalysisChannel,
-                    'TotalPower': calculateTotalPower().toStringAsFixed(2),
-                    'AlphaPower': (pipeline.currentMetrics.bandPowers['Alpha'] ?? 0.0).toStringAsFixed(2),
-                    'BetaPower': (pipeline.currentMetrics.bandPowers['Beta'] ?? 0.0).toStringAsFixed(2),
-                    'ThetaPower': (pipeline.currentMetrics.bandPowers['Theta'] ?? 0.0).toStringAsFixed(2),
-                    'DeltaPower': (pipeline.currentMetrics.bandPowers['Delta'] ?? 0.0).toStringAsFixed(2),
-                    'AlphaPeakFreq': pipeline.currentMetrics.dominantFrequency.toStringAsFixed(2),
-                    'HjorthActivity (Variance)': pipeline.hjorthActivity.toStringAsFixed(4),
-                    'HjorthMobility': pipeline.hjorthMobility.toStringAsFixed(4),
-                  };
+                  final dataSummary = pipeline.currentMetrics.toAiSummary(
+                    isFromFile: pipeline.isFromFile,
+                    channelName: pipeline.selectedAnalysisChannel,
+                    hjorthActivity: pipeline.hjorthActivity,
+                    hjorthMobility: pipeline.hjorthMobility,
+                  );
                   await ai.performAIAnalysis(dataSummary);
                 },
                 aiAnalysisResult: ai.aiAnalysisResult,
