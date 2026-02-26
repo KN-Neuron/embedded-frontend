@@ -18,21 +18,39 @@ class CyberButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPressed,
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        color: borderColor,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onPressed,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          color: color,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: borderColor, size: 18),
-              const SizedBox(width: 8),
-              Text(label, style: const TextStyle(color: Colors.white, fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 12)),
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(color: borderColor, offset: const Offset(4, 4)),
             ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: color,
+              border: Border.all(color: Colors.white, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: borderColor, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
