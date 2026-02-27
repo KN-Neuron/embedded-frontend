@@ -8,7 +8,13 @@ class SignalView extends StatelessWidget {
   final double offsetStep;
   final int sampleRate;
 
-  const SignalView({Key? key, required this.channels, required this.viewBuffer, required this.offsetStep, required this.sampleRate}) : super(key: key);
+  const SignalView({
+    Key? key,
+    required this.channels,
+    required this.viewBuffer,
+    required this.offsetStep,
+    required this.sampleRate
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +48,7 @@ class SignalView extends StatelessWidget {
               sideTitles: SideTitles(
                   showTitles: true,
                   reservedSize: 40,
-                  interval: 1.0,
+                  interval: offsetStep,
                   getTitlesWidget: (value, meta) {
                     for (int i = 0; i < channels.length; i++) {
                       if ((value - (i * offsetStep)).abs() < 0.1) {
@@ -54,9 +60,8 @@ class SignalView extends StatelessWidget {
               )
           ),
           bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
-            const style = TextStyle(color: Colors.grey, fontSize: 10);
             if (value.toInt() % (sampleRate * 1) == 0) {
-              return SideTitleWidget(meta: meta, child: Text('${value ~/ sampleRate} s', style: style));
+              return SideTitleWidget(meta: meta, child: Text('${value ~/ sampleRate} s', style: const TextStyle(color: Colors.grey, fontSize: 10)));
             }
             return const SizedBox.shrink();
           })),

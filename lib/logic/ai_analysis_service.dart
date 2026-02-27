@@ -1,93 +1,64 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../core/eeg_metrics.dart';
 
-/// handles communication with the OpenAI API for AI-driven EEG interpretation
-class AiAnalysisService {
-  static const String _keyFileName = '.openai_api_key';
-  static const String _chatUrl = 'https://api.openai.com/v1/chat/completions';
-  static const String _model = 'gpt-3.5-turbo';
+class AiAnalysisService with ChangeNotifier {
+  String _aiAnalysisResult = '';
+  bool _isAnalyzing = false;
 
-  /// reads the OpenAI API key securely stored in the app's documents directory
-  Future<String?> _getApiKey() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$_keyFileName');
-      if (await file.exists()) {
-        return await file.readAsString();
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
+  String get aiAnalysisResult => _aiAnalysisResult;
+  bool get isAnalyzing => _isAnalyzing;
 
-  /// saves the API key to the secure file
-  Future<void> saveApiKey(String key) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$_keyFileName');
-    await file.writeAsString(key);
-  }
+  Future<void> performAIAnalysis({
+    required EegMetrics metrics,
+    required bool isFromFile,
+    required String channelName,
+    required double hjorthActivity,
+    required double hjorthMobility,
+  }) async {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
 
-  /// generates a concise interpretation of the EEG metrics using OpenAI.
-  Future<String> getAiInterpretation(EegMetrics metrics) async {
-    final apiKey = await _getApiKey();
-    if (apiKey == null || apiKey.isEmpty) {
-      return _getLocalFallbackAnalysis(metrics);
+    if (apiKey.isEmpty) {
+      _aiAnalysisResult = 'API Key not found in .env file.';
+      notifyListeners();
+      return;
     }
 
-    final prompt = _buildAnalysisPrompt(metrics);
+    _isAnalyzing = true;
+    _aiAnalysisResult = 'Analyzing EEG patterns...';
+    notifyListeners();
 
     try {
-      final response = await http.post(
-        Uri.parse(_chatUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          'model': _model,
-          'messages': [
-            {'role': 'system', 'content': 'You are a concise EEG analysis assistant. Provide a single paragraph interpretation of the metrics below, focusing on the dominant frequency and band power ratios.'},
-            {'role': 'user', 'content': prompt},
-          ],
-          'temperature': 0.5,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'] as String;
-      } else {
-        return 'API Error (${response.statusCode}): Could not get analysis. Using local fallback.';
-      }
-    } catch (e) {
-      return 'Network Error: Could not reach API. Using local fallback.';
-    }
-  }
-
-  String _buildAnalysisPrompt(EegMetrics metrics) {
-    return '''
-      EEG Analysis Metrics:
-      - Dominant Frequency: ${metrics.dominantFrequency.toStringAsFixed(2)} Hz
-      - Delta Power (0.5-4Hz): ${metrics.bandPowers['Delta']?.toStringAsFixed(4) ?? 'N/A'}
-      - Theta Power (4-8Hz): ${metrics.bandPowers['Theta']?.toStringAsFixed(4) ?? 'N/A'}
-      - Alpha Power (8-13Hz): ${metrics.bandPowers['Alpha']?.toStringAsFixed(4) ?? 'N/A'}
-      - Beta Power (13-30Hz): ${metrics.bandPowers['Beta']?.toStringAsFixed(4) ?? 'N/A'}
+      final prompt = '''
+      Please provide a detailed clinical interpretation of the following EEG metrics:
       
-      Interpret these findings.
-    ''';
-  }
+      Source: ${isFromFile ? 'Loaded Dataset' : 'Mock Data'}
+      Channel: $channelName
+      Dominant Frequency: ${metrics.dominantFrequency.toStringAsFixed(2)} Hz
+      Alpha Power: ${metrics.bandPowers['Alpha']?.toStringAsFixed(2) ?? '0.0'}
+      Beta Power: ${metrics.bandPowers['Beta']?.toStringAsFixed(2) ?? '0.0'}
+      Theta Power: ${metrics.bandPowers['Theta']?.toStringAsFixed(2) ?? '0.0'}
+      Delta Power: ${metrics.bandPowers['Delta']?.toStringAsFixed(2) ?? '0.0'}
+      Hjorth Activity: ${hjorthActivity.toStringAsFixed(2)}
+      Hjorth Mobility: ${hjorthMobility.toStringAsFixed(2)}
+      
+      Provide a detailed, professional analysis explaining specific patterns, discrepancies, and individual metrics. 
+      Structure your response using a numbered list (1., 2., 3., etc.) with clear titles for each point (e.g., "1. Dominant Slow-Wave Activity:").
+      
+      IMPORTANT: Use plain text only. Do NOT use markdown asterisks (** or *) for bolding or bullet points.
+      ''';
 
-  String _getLocalFallbackAnalysis(EegMetrics metrics) {
-    if ((metrics.bandPowers['Alpha'] ?? 0) > 0.5) {
-      return 'Local Analysis: Dominant activity is in the Alpha band (${metrics.dominantFrequency.toStringAsFixed(1)} Hz). This indicates a state of relaxed awareness.';
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+      final response = await model.generateContent([Content.text(prompt)]);
+
+      String rawText = response.text ?? 'Analysis failed to return a valid response.';
+      _aiAnalysisResult = rawText.replaceAll('**', '').replaceAll('* ', '- ');
+    } catch (e) {
+      _aiAnalysisResult = 'Error during analysis: $e';
+    } finally {
+      _isAnalyzing = false;
+      notifyListeners();
     }
-    if ((metrics.bandPowers['Theta'] ?? 0) > 0.2) {
-      return 'Local Analysis: Elevated Theta power suggests drowsiness or a deeply relaxed/meditative state.';
-    }
-    return 'Local Analysis: Signal activity is stable and within expected parameters for a synthetic baseline.';
   }
 }

@@ -10,8 +10,6 @@ class AnalysisDrawer extends StatelessWidget {
   final double hjorthActivity;
   final double hjorthMobility;
   final double alphaPeakFreq;
-  final String apiKey;
-  final Future<void> Function(String) onSaveApiKey;
   final Future<void> Function() onPerformAIAnalysis;
   final String aiAnalysisResult;
   final List<double> spectrum;
@@ -26,8 +24,6 @@ class AnalysisDrawer extends StatelessWidget {
     required this.hjorthActivity,
     required this.hjorthMobility,
     required this.alphaPeakFreq,
-    required this.apiKey,
-    required this.onSaveApiKey,
     required this.onPerformAIAnalysis,
     required this.aiAnalysisResult,
     required this.spectrum,
@@ -105,22 +101,12 @@ class AnalysisDrawer extends StatelessWidget {
                 children: [
                   Text('Gemini AI Analysis', style: Theme.of(context).textTheme.titleMedium!.copyWith(color: secondaryColor)),
                   const SizedBox(height: 10),
-                  TextField(
-                    onSubmitted: onSaveApiKey,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: apiKey.isNotEmpty ? 'API Key Set' : 'Enter Gemini API Key',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: Icon(apiKey.isNotEmpty ? Icons.check_circle : Icons.vpn_key),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: onPerformAIAnalysis,
                       icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('analyze with AI'),
+                      label: const Text('Analyze with AI'),
                       style: ElevatedButton.styleFrom(backgroundColor: secondaryColor),
                     ),
                   ),

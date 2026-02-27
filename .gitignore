@@ -59,3 +59,5 @@ windows/flutter/generated_plugins.cmake
 # Symbolication and Obfuscation (Keeping these for production builds)
 app.*.symbols
 app.*.map.json
+
+.env
