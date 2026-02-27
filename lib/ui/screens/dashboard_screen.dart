@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -39,35 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               allowedExtensions: ['csv', 'txt'],
             );
             if (result != null && result.files.single.path != null) {
-              final file = File(result.files.single.path!);
-              final lines = await file.readAsLines();
-              if (lines.isEmpty) return;
-              final headers = lines.first.split(',');
-              List<String> loadedChannels = [];
-              List<int> channelIndices = [];
-              for (int i = 0; i < headers.length; i++) {
-                final h = headers[i].trim();
-                if (h.isNotEmpty && h != 'Class' && h != 'ID') {
-                  loadedChannels.add(h);
-                  channelIndices.add(i);
-                }
-              }
-              Map<String, List<double>> loadedData = {
-                for (var ch in loadedChannels) ch: []
-              };
-              for (int i = 1; i < lines.length; i++) {
-                final parts = lines[i].split(',');
-                if (parts.length < headers.length) continue;
-                for (int j = 0; j < loadedChannels.length; j++) {
-                  final ch = loadedChannels[j];
-                  final idx = channelIndices[j];
-                  final val = (double.tryParse(parts[idx].trim()) ?? 0.0) / 100.0;
-                  loadedData[ch]!.add(val);
-                }
-              }
-              if (loadedChannels.isNotEmpty) {
-                pipeline.loadFileData(loadedData, loadedChannels);
-              }
+              await pipeline.loadFile(result.files.single.path!);
             }
           } catch (e) {
             debugPrint('Error: $e');

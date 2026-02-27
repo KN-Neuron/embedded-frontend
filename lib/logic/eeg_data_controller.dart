@@ -4,15 +4,14 @@ import '../core/band_config.dart';
 import '../core/complex.dart';
 import '../core/eeg_metrics.dart';
 import '../core/constants.dart';
+import '../data/eeg_repository.dart';
 import 'signal_processor.dart';
 
 class DataPipeline with ChangeNotifier {
-  List<String> _channels = ['Fp1', 'Fp2', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2'];
+  EegRepository _repository = MockEegRepository();
   Map<String, List<double>> _buffers = {};
   int _bufferIndex = 0;
-  bool _isFromFile = false;
-  Map<String, List<double>> _fileData = {};
-  int _filePlaybackIndex = 0;
+  int _globalIndex = 0;
   Timer? _timer;
   bool _isRunning = false;
   String _selectedAnalysisChannel = 'Fp1';
@@ -20,8 +19,8 @@ class DataPipeline with ChangeNotifier {
   double _hjorthActivity = 0.0;
   double _hjorthMobility = 0.0;
 
-  List<String> get channels => List.unmodifiable(_channels);
-  bool get isFromFile => _isFromFile;
+  List<String> get channels => _repository.getChannels();
+  bool get isFromFile => _repository is FileEegRepository;
   bool get isRunning => _isRunning;
   String get selectedAnalysisChannel => _selectedAnalysisChannel;
   EegMetrics get currentMetrics => _currentMetrics;
@@ -34,78 +33,58 @@ class DataPipeline with ChangeNotifier {
   }
 
   void _initBuffers() {
-    _buffers = { for (var ch in _channels) ch: List.filled(bufferLength, 0.0) };
+    _buffers = { for (var ch in channels) ch: List.filled(bufferLength, 0.0) };
     _bufferIndex = 0;
+    _globalIndex = 0;
   }
 
-  void loadFileData(Map<String, List<double>> data, List<String> newChannels) {
+  Future<void> loadFile(String filePath) async {
     if (_isRunning) togglePlayback();
-    _channels = newChannels;
-    _fileData = data;
-    _isFromFile = true;
-    _filePlaybackIndex = 0;
-    if (!_channels.contains(_selectedAnalysisChannel)) {
-      _selectedAnalysisChannel = _channels.first;
+    final newRepository = await FileEegRepository.loadFromFile(filePath);
+    if (newRepository.getChannels().isNotEmpty) {
+      _repository = newRepository;
+      if (!_repository.getChannels().contains(_selectedAnalysisChannel)) {
+        _selectedAnalysisChannel = _repository.getChannels().first;
+      }
+      _initBuffers();
+      notifyListeners();
     }
-    _initBuffers();
-    notifyListeners();
   }
 
   void useMockData() {
     if (_isRunning) togglePlayback();
-    _isFromFile = false;
-    _channels = ['Fp1', 'Fp2', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2'];
+    _repository = MockEegRepository();
+    _selectedAnalysisChannel = 'Fp1';
     _initBuffers();
     notifyListeners();
   }
 
   void togglePlayback() {
     if (_isRunning) {
-      _stopPlayback();
+      _timer?.cancel();
+      _isRunning = false;
     } else {
-      _startPlayback();
+      _isRunning = true;
+      _timer = Timer.periodic(const Duration(milliseconds: 1000 ~/ sampleRate), (timer) {
+        _updateBuffers();
+        if (_bufferIndex % (bufferLength ~/ 4) == 0) {
+          _performAnalysis();
+          notifyListeners();
+        }
+      });
     }
-  }
-
-  void _startPlayback() {
-    if (_isFromFile && _fileData.isEmpty) return;
-    _isRunning = true;
-    _timer = Timer.periodic(const Duration(milliseconds: 1000 ~/ sampleRate), (timer) {
-      _updateBuffers();
-      _maybeUpdateAnalysis();
-    });
-    notifyListeners();
-  }
-
-  void _stopPlayback() {
-    _timer?.cancel();
-    _isRunning = false;
     notifyListeners();
   }
 
   void _updateBuffers() {
-    if (_isFromFile) {
-      for (var ch in _channels) {
-        if (_fileData.containsKey(ch)) {
-          _buffers[ch]![_bufferIndex] = _fileData[ch]![_filePlaybackIndex % _fileData[ch]!.length];
-        }
+    final nextSamples = _repository.getNextSamples(_globalIndex);
+    nextSamples.forEach((channel, value) {
+      if (_buffers.containsKey(channel)) {
+        _buffers[channel]![_bufferIndex] = value;
       }
-      _filePlaybackIndex++;
-    } else {
-      final t = _bufferIndex / sampleRate;
-      for (int i = 0; i < _channels.length; i++) {
-        final ch = _channels[i];
-        _buffers[ch]![_bufferIndex] = SignalProcessor.generateSample(t + i * 0.1);
-      }
-    }
+    });
     _bufferIndex = (_bufferIndex + 1) % bufferLength;
-  }
-
-  void _maybeUpdateAnalysis() {
-    if (_bufferIndex % (bufferLength ~/ 4) == 0) {
-      _performAnalysis();
-      notifyListeners();
-    }
+    _globalIndex++;
   }
 
   List<double> viewBuffer(String channel) {
@@ -118,7 +97,7 @@ class DataPipeline with ChangeNotifier {
   }
 
   void setSelectedChannel(String ch) {
-    if (!_channels.contains(ch)) return;
+    if (!channels.contains(ch)) return;
     _selectedAnalysisChannel = ch;
     _performAnalysis();
     notifyListeners();
@@ -151,11 +130,10 @@ class DataPipeline with ChangeNotifier {
     final alphaBand = BandConfig.allBands.firstWhere((b) => b.name == 'Alpha');
 
     for (int i = 0; i < mag.length; i++) {
-      double currentFreq = freq[i];
-      if (currentFreq >= alphaBand.minFreq && currentFreq <= alphaBand.maxFreq) {
+      if (freq[i] >= alphaBand.minFreq && freq[i] <= alphaBand.maxFreq) {
         if (mag[i] > maxAlphaMag) {
           maxAlphaMag = mag[i];
-          peakAlphaFreq = currentFreq;
+          peakAlphaFreq = freq[i];
         }
       }
     }
