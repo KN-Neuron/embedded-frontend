@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../core/band_config.dart';
 import '../core/complex.dart';
 import '../core/eeg_metrics.dart';
@@ -11,11 +12,24 @@ class AnalysisResult {
   AnalysisResult(this.metrics, this.hjorthActivity, this.hjorthMobility);
 }
 
+class AnalysisPayload {
+  final List<double> view;
+  final int sampleRate;
+
+  AnalysisPayload(this.view, this.sampleRate);
+}
+
 class AnalysisEngine {
-  AnalysisResult analyze(List<double> view, int sampleRate) {
+  Future<AnalysisResult> analyze(List<double> view, int sampleRate) async {
     if (view.isEmpty) {
       return AnalysisResult(EegMetrics.empty(), 0.0, 0.0);
     }
+    return await compute(_processSync, AnalysisPayload(view, sampleRate));
+  }
+
+  static AnalysisResult _processSync(AnalysisPayload payload) {
+    final view = payload.view;
+    final sampleRate = payload.sampleRate;
 
     final hjorth = SignalProcessor.hjorthParameters(view);
     final hjorthActivity = hjorth['Activity'] ?? 0.0;

@@ -14,13 +14,13 @@ class DataPipeline with ChangeNotifier {
   double _hjorthActivity = 0.0;
   double _hjorthMobility = 0.0;
   final double offsetStep = 6.0;
+  bool _isAnalyzing = false;
 
   DataPipeline() {
     _playbackService = PlaybackService(
       onTick: () {},
       onAnalysisTrigger: () {
         _performAnalysis();
-        notifyListeners();
       },
     );
   }
@@ -69,15 +69,21 @@ class DataPipeline with ChangeNotifier {
     if (!channels.contains(ch)) return;
     _selectedAnalysisChannel = ch;
     _performAnalysis();
-    notifyListeners();
   }
 
-  void _performAnalysis() {
+  Future<void> _performAnalysis() async {
+    if (_isAnalyzing) return;
+    _isAnalyzing = true;
+
     final view = _playbackService.getViewBuffer(_selectedAnalysisChannel);
-    final result = _analysisEngine.analyze(view, sampleRate);
+    final result = await _analysisEngine.analyze(view, sampleRate);
+
     _currentMetrics = result.metrics;
     _hjorthActivity = result.hjorthActivity;
     _hjorthMobility = result.hjorthMobility;
+
+    _isAnalyzing = false;
+    notifyListeners();
   }
 
   @override
