@@ -1,89 +1,64 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../core/eeg_metrics.dart';
 
-class AiAnalysisService extends ChangeNotifier {
-  static const String _keyFileName = 'gemini_api_key.txt';
+class AiAnalysisService with ChangeNotifier {
+  String _aiAnalysisResult = '';
+  bool _isAnalyzing = false;
 
-  String _apiKey = '';
-  String get apiKey => _apiKey;
-
-  String _aiAnalysisResult = 'Waiting for analysis...';
   String get aiAnalysisResult => _aiAnalysisResult;
+  bool get isAnalyzing => _isAnalyzing;
 
-  AiAnalysisService() {
-    _initApiKey();
-  }
+  Future<void> performAIAnalysis({
+    required EegMetrics metrics,
+    required bool isFromFile,
+    required String channelName,
+    required double hjorthActivity,
+    required double hjorthMobility,
+  }) async {
+    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
 
-  Future<void> _initApiKey() async {
-    _apiKey = await _loadApiKey();
-    notifyListeners();
-  }
-
-  Future<String> _loadApiKey() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$_keyFileName');
-      if (await file.exists()) {
-        return (await file.readAsString()).trim();
-      }
-    } catch (e) {}
-    return '';
-  }
-
-  Future<void> saveApiKey(String key) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$_keyFileName');
-      await file.writeAsString(key.trim());
-      _apiKey = key.trim();
-      notifyListeners();
-    } catch (e) {}
-  }
-
-  Future<void> performAIAnalysis(Map<String, String> dataSummary) async {
-    if (_apiKey.isEmpty) {
-      _aiAnalysisResult = 'error: API Key is not set';
+    if (apiKey.isEmpty) {
+      _aiAnalysisResult = 'API Key not found in .env file.';
       notifyListeners();
       return;
     }
 
-    _aiAnalysisResult = 'Analyzing...';
+    _isAnalyzing = true;
+    _aiAnalysisResult = 'Analyzing EEG patterns...';
     notifyListeners();
-
-    final prompt = """
-      You are an expert neuroscientist. Analyze the following EEG power metrics and time-domain features and provide a brief, professional summary (max 3 sentences) on the likely state of the subject.
-
-      Metrics:
-      ${dataSummary.entries.map((e) => '- ${e.key}: ${e.value}').join('\n')}
-      """;
 
     try {
-      final response = await http.post(
-        Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$_apiKey'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'contents': [{'parts': [{'text': prompt}]}]}),
-      );
+      final prompt = '''
+      Please provide a detailed clinical interpretation of the following EEG metrics:
+      
+      Source: ${isFromFile ? 'Loaded Dataset' : 'Mock Data'}
+      Channel: $channelName
+      Dominant Frequency: ${metrics.dominantFrequency.toStringAsFixed(2)} Hz
+      Alpha Power: ${metrics.bandPowers['Alpha']?.toStringAsFixed(2) ?? '0.0'}
+      Beta Power: ${metrics.bandPowers['Beta']?.toStringAsFixed(2) ?? '0.0'}
+      Theta Power: ${metrics.bandPowers['Theta']?.toStringAsFixed(2) ?? '0.0'}
+      Delta Power: ${metrics.bandPowers['Delta']?.toStringAsFixed(2) ?? '0.0'}
+      Hjorth Activity: ${hjorthActivity.toStringAsFixed(2)}
+      Hjorth Mobility: ${hjorthMobility.toStringAsFixed(2)}
+      
+      Provide a detailed, professional analysis explaining specific patterns, discrepancies, and individual metrics. 
+      Structure your response using a numbered list (1., 2., 3., etc.) with clear titles for each point (e.g., "1. Dominant Slow-Wave Activity:").
+      
+      IMPORTANT: Use plain text only. Do NOT use markdown asterisks (** or *) for bolding or bullet points.
+      ''';
 
-      final jsonResponse = json.decode(response.body);
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+      final response = await model.generateContent([Content.text(prompt)]);
 
-      if (jsonResponse is Map && jsonResponse['candidates'] is List && jsonResponse['candidates'].isNotEmpty) {
-        final candidate = jsonResponse['candidates'][0];
-        if (candidate is Map && candidate['content'] is Map && candidate['content']['parts'] is List && candidate['content']['parts'].isNotEmpty) {
-          final text = candidate['content']['parts'][0]['text'];
-          if (text is String) {
-            _aiAnalysisResult = text;
-            notifyListeners();
-            return;
-          }
-        }
-      }
-      _aiAnalysisResult = 'error: Unexpected AI response format.';
+      String rawText = response.text ?? 'Analysis failed to return a valid response.';
+      _aiAnalysisResult = rawText.replaceAll('**', '').replaceAll('* ', '- ');
     } catch (e) {
-      _aiAnalysisResult = 'error connecting to AI: $e';
+      _aiAnalysisResult = 'Error during analysis: $e';
+    } finally {
+      _isAnalyzing = false;
+      notifyListeners();
     }
-    notifyListeners();
   }
 }

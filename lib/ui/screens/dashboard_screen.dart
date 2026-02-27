@@ -103,16 +103,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                 hjorthActivity: pipeline.hjorthActivity,
                 hjorthMobility: pipeline.hjorthMobility,
                 alphaPeakFreq: pipeline.currentMetrics.dominantFrequency,
-                apiKey: ai.apiKey,
-                onSaveApiKey: ai.saveApiKey,
                 onPerformAIAnalysis: () async {
-                  final dataSummary = pipeline.currentMetrics.toAiSummary(
+                  await ai.performAIAnalysis(
+                    metrics: pipeline.currentMetrics,
                     isFromFile: pipeline.isFromFile,
                     channelName: pipeline.selectedAnalysisChannel,
                     hjorthActivity: pipeline.hjorthActivity,
                     hjorthMobility: pipeline.hjorthMobility,
                   );
-                  await ai.performAIAnalysis(dataSummary);
                 },
                 aiAnalysisResult: ai.aiAnalysisResult,
                 spectrum: pipeline.currentMetrics.fftMagnitude,
