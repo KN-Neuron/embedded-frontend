@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'core/constants.dart';
 import 'logic/eeg_data_controller.dart';
-import 'ui/screens/eeg_home.dart';
-import 'ui/screens/educational_screen.dart';
+import 'logic/ai_analysis_service.dart';
 import 'ui/screens/dashboard_screen.dart';
+import 'ui/screens/educational_screen.dart';
 
-void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => EegDataController(),
-      child: const EEGAnalyzerApp(),
-    ),
-  );
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
+  runApp(const EEGAnalyzerApp());
 }
 
 class EEGAnalyzerApp extends StatelessWidget {
@@ -20,24 +18,23 @@ class EEGAnalyzerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'EEG Realtime Dashboard',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF000000),
-        cardColor: cardColor,
-        colorScheme: const ColorScheme.dark(
-          primary: primaryColor,
-          secondary: secondaryColor,
-          surface: Color(0xFF0A0A10),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => DataPipeline()),
+        ChangeNotifierProvider(create: (_) => AiAnalysisService()),
+      ],
+      child: MaterialApp(
+        title: 'EEG Dashboard App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData.dark().copyWith(
+          useMaterial3: true,
         ),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const DashboardScreen(),
+          '/educational': (context) => const EducationalScreen(),
+        },
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const EEGHome(),
-        '/dashboard': (context) => const DashboardScreen(),
-        '/educational': (context) => const EducationalScreen(),
-      },
     );
   }
 }
