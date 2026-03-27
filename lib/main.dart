@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'logic/eeg_data_controller.dart';
 import 'logic/ai_analysis_service.dart';
+import 'logic/serial_service.dart'; // Import SerialService
 import 'ui/screens/dashboard_screen.dart';
 import 'ui/screens/educational_screen.dart';
 
@@ -20,6 +21,7 @@ class EEGAnalyzerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider(create: (_) => SerialService()), // Add SerialService provider
         ChangeNotifierProvider(create: (_) => DataPipeline()),
         ChangeNotifierProvider(create: (_) => AiAnalysisService()),
       ],

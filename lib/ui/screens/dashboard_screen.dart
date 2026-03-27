@@ -8,6 +8,7 @@ import 'dashboard/signal_view.dart';
 import 'dashboard/analysis_drawer.dart';
 import '../../logic/eeg_data_controller.dart';
 import '../../logic/ai_analysis_service.dart';
+import '../../logic/serial_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -17,6 +18,27 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
   bool _showAnalysisDrawer = true;
+  bool _isSerialConnected = false;
+  Stream<List<double>>? _serialDataStream;
+
+  void _toggleSerialConnection() async {
+    final serialService = Provider.of<SerialService>(context, listen: false);
+    if (_isSerialConnected) {
+      serialService.disconnect();
+      setState(() {
+        _isSerialConnected = false;
+        _serialDataStream = null;
+      });
+    } else {
+      await serialService.connect();
+      if (serialService.isConnected) {
+        setState(() {
+          _isSerialConnected = true;
+          _serialDataStream = serialService.startReading();
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +67,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           }
         },
         onUseMockData: pipeline.useMockData,
-        onStartStopToggle: pipeline.togglePlayback,
+        onStartStopToggle: () {
+          if (_isSerialConnected && _serialDataStream != null) {
+            pipeline.toggleSerialPlayback(_serialDataStream!);
+          } else {
+            pipeline.togglePlayback();
+          }
+        },
         onOpenEducational: () => Navigator.pushNamed(context, '/educational'),
         onToggleAnalysisDrawer: () {
           setState(() {
@@ -53,6 +81,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           });
         },
         showAnalysisDrawer: _showAnalysisDrawer,
+        onConnectSerial: _toggleSerialConnection,
+        isSerialConnected: _isSerialConnected,
       );
     }
 
