@@ -12,6 +12,8 @@ class ControlsCard extends StatelessWidget {
   final VoidCallback onOpenEducational;
   final VoidCallback onToggleAnalysisDrawer;
   final bool showAnalysisDrawer;
+  final VoidCallback onConnectSerial;
+  final bool isSerialConnected;
 
   const ControlsCard({
     super.key,
@@ -22,6 +24,8 @@ class ControlsCard extends StatelessWidget {
     required this.onOpenEducational,
     required this.onToggleAnalysisDrawer,
     required this.showAnalysisDrawer,
+    required this.onConnectSerial,
+    required this.isSerialConnected,
   });
 
   @override
@@ -73,14 +77,21 @@ class ControlsCard extends StatelessWidget {
                   icon: Icons.downloading,
                   color: const Color(0xFF1A1A1A),
                   borderColor: Colors.cyanAccent,
-                  onPressed: () => onPickAndLoadFile(),
+                  onPressed: isRunning ? null : () => onPickAndLoadFile(),
                 ),
                 CyberButton(
                   label: 'SIMULATE',
                   icon: Icons.terminal,
                   color: const Color(0xFF1A1A1A),
                   borderColor: secondaryColor,
-                  onPressed: onUseMockData,
+                  onPressed: isRunning ? null : onUseMockData,
+                ),
+                CyberButton(
+                  label: isSerialConnected ? 'DISCONNECT' : 'CONNECT',
+                  icon: isSerialConnected ? Icons.link_off : Icons.link,
+                  color: const Color(0xFF1A1A1A),
+                  borderColor: isSerialConnected ? Colors.redAccent : Colors.greenAccent,
+                  onPressed: isRunning ? null : onConnectSerial,
                 ),
                 MainActionToggle(
                   isRunning: isRunning,

@@ -5,7 +5,7 @@ class CyberButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color borderColor;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const CyberButton({
     super.key,
@@ -13,7 +13,7 @@ class CyberButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.borderColor,
-    required this.onPressed,
+    this.onPressed,
   });
 
   @override
